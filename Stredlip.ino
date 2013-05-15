@@ -27,6 +27,8 @@ int gLedPin = 10;
 int bLedPin = 11;
 
 int tdelay = 2;
+int minsdiff = 50;
+int minvdiff = 50;
 
 byte r;
 byte g;
@@ -40,27 +42,54 @@ void setup()  {
   s = v = r = g = b = 0;
   h = -1;
   Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for Leonardo only
+  }
+  Serial.print("Send HSV values like \"H S V T\\n\" with T for delay\n\r");
+  
 } 
 
 void loop()  { 
 while (Serial.available() > 0) {
+    char buff[255];
+    int nh, nv, ns;
+    memset( buff, 0, sizeof(buff));
+    if( !Serial.readBytesUntil('\r', buff, 255) )
+       break;
+    else
+    {
+      if( sscanf(buff, "%d %d %d %d", &nh, &ns, &nv, &tdelay ) != 4 )
+      {
+        Serial.print("Send HSV values like \"H S V T\\n\" with T for delay\n\r");
+        break;
+      }
 
-    // look for the next valid integer in the incoming serial stream:
-    int nh = Serial.parseInt();
-    // do it again:
-    int ns = Serial.parseInt();
-    // do it again:
-    int nv = Serial.parseInt();
+      Serial.print(nh);
+      Serial.print(ns);
+      Serial.print(nv);
+      Serial.print(tdelay);
+      break;
+    }
+
+//    // look for the next valid integer in the incoming serial stream:
+//    int nh = Serial.parseInt();
+//    // do it again:
+//    int ns = Serial.parseInt();
+//    // do it again:
+//    int nv = Serial.parseInt();
+//    
+//    tdelay = Serial.parseInt();
+    
 
     // look for the newline. That's the end of your
     // sentence:
-    if (Serial.read() == '\n') {
-      
+    byte b = Serial.read();
+    if (b == '\n' || b == '\r' ) {
       nh = constrain(nh, 0, 360);
       ns = constrain(ns, 0, 100);
       nv = constrain(nv, 0, 100);
       
-      if( h != nh )
+      if( h != nh || (abs(ns - s) > minsdiff ) || (abs( nv - v ) > minvdiff ) )
       {
         h = nh;
         s = ns;
@@ -87,6 +116,11 @@ while (Serial.available() > 0) {
           analogWrite(bLedPin, dim_curve[b]);
           delay(tdelay*2);
         }
+        HSV_to_RGB(h, s, v, &r, &g, &b);
+        analogWrite(rLedPin, dim_curve[r]);
+        analogWrite(gLedPin, dim_curve[g]);
+        analogWrite(bLedPin, dim_curve[b]);
+        delay(tdelay*2);
       }
       
     }
@@ -108,6 +142,10 @@ void newColor( )
     analogWrite(bLedPin, dim_curve[b]);
     delay(tdelay);
   }
+  analogWrite(rLedPin, 0);
+  analogWrite(gLedPin, 0);
+  analogWrite(bLedPin, 0); 
+  delay(tdelay);
   byte nr, ng, nb;
   HSV_to_RGB(h, s, v, &nr, &ng, &nb);
   while( r != nr || b != nb || g != ng )
